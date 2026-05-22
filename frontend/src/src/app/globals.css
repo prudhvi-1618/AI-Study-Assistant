@@ -1,0 +1,229 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   CSS Custom Properties (Light & Dark Modes)
+   ============================================ */
+:root {
+  /* Brand Colors - Light Mode */
+  --color-brand: #7C71F0;
+  --color-brand-light: #E9E5FF;
+  --color-brand-dark: #2A1D6E;
+
+  /* Accent Colors - Light Mode */
+  --color-mint: #7DD9B3;
+  --color-mint-light: #D1FAE5;
+  --color-mint-dark: #065F46;
+
+  --color-cream: #FDE68A;
+  --color-cream-light: #FEF9C3;
+  --color-cream-dark: #78350F;
+
+  --color-blush: #F9A8D4;
+  --color-blush-light: #FCE7F3;
+  --color-blush-dark: #831843;
+
+  /* Neutral Colors - Light Mode */
+  --color-ink: #0F0F0F;
+  --color-surface: #F7F7F5;
+  --color-text-primary: #0F0F0F;
+  --color-text-secondary: #6B7280;
+  --color-border: #E5E7EB;
+  --color-bg: #FFFFFF;
+}
+
+/* Dark Mode */
+html.dark {
+  --color-brand: #9D92FF;
+  --color-brand-light: #2A1D6E;
+  --color-brand-dark: #E9E5FF;
+
+  --color-mint: #7DD9B3;
+  --color-mint-light: #065F46;
+  --color-mint-dark: #D1FAE5;
+
+  --color-cream: #F5D547;
+  --color-cream-light: #78350F;
+  --color-cream-dark: #FEF9C3;
+
+  --color-blush: #F97FCF;
+  --color-blush-light: #831843;
+  --color-blush-dark: #FCE7F3;
+
+  --color-ink: #FFFFFF;
+  --color-surface: #1A1A1A;
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #D1D5DB;
+  --color-border: #374151;
+  --color-bg: #0F0F0F;
+}
+
+/* ============================================
+   Base Styles (Typography)
+   ============================================ */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-white dark:bg-[#0F0F0F] text-ink dark:text-white font-inter transition-colors duration-300;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-geist font-extrabold;
+}
+
+h1 {
+  @apply text-6xl md:text-8xl tracking-tighter leading-tight;
+}
+
+h2 {
+  @apply text-4xl tracking-tight leading-snug;
+}
+
+h3 {
+  @apply text-3xl leading-snug;
+}
+
+h4 {
+  @apply text-2xl leading-snug;
+}
+
+h5 {
+  @apply text-xl leading-snug;
+}
+
+h6 {
+  @apply text-base leading-relaxed;
+}
+
+p {
+  @apply text-base leading-relaxed;
+}
+
+/* ============================================
+   Form Elements
+   ============================================ */
+button {
+  @apply transition-colors duration-200;
+}
+
+input,
+textarea,
+select {
+  @apply rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-ink dark:text-white px-4 py-2 transition-colors duration-200;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  @apply outline-none ring-2 ring-brand ring-opacity-40;
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+.card-base {
+  @apply rounded-2xl bg-surface dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-800;
+}
+
+.btn-base {
+  @apply rounded-2xl px-6 py-3 font-medium transition-all duration-200;
+}
+
+.btn-primary {
+  @apply btn-base bg-brand hover:bg-brand/90 text-white dark:bg-brand dark:hover:bg-brand/80;
+}
+
+.btn-secondary {
+  @apply btn-base border-2 border-brand text-brand hover:bg-brand/5 dark:text-brand dark:hover:bg-brand/10;
+}
+
+.btn-ghost {
+  @apply btn-base text-ink dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800;
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.4s ease-out;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.4s ease-out;
+}
+
+/* ============================================
+   Focus & Ring States
+   ============================================ */
+:focus-visible {
+  @apply outline-none ring-2 ring-brand ring-opacity-40 ring-offset-2;
+}
+
+.dark :focus-visible {
+  @apply ring-brand ring-opacity-60;
+}
+
+/* ============================================
+   Scrollbar Styling (Webkit only)
+   ============================================ */
+::-webkit-scrollbar {
+  @apply w-2 h-2;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-gray-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-700 rounded-full hover:bg-gray-400 dark:hover:bg-gray-600;
+}
