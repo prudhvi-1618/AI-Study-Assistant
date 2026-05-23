@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+  id VARCHAR(36) PRIMARY KEY NOT NULL,
+  user_id VARCHAR(36) NOT NULL,
+  token_hash VARCHAR(255) NOT NULL,
+  family_id VARCHAR(36) NOT NULL,
+  user_agent VARCHAR(500) NULL,
+  ip_address VARCHAR(45) NULL,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
