@@ -1,0 +1,47 @@
+@import "tailwindcss";
+@config "../../tailwind.config.ts";
+
+/* ============================================
+   Base Styles
+   ============================================ */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #FFFFFF;
+  color: #0F0F0F;
+  font-family: var(--font-inter, sans-serif);
+  line-height: 1.6;
+}
+
+html.dark body {
+  background-color: #0F0F0F;
+  color: #FFFFFF;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-geist-sans, sans-serif);
+  font-weight: 800;
+}
+
+h1 {
+  font-size: 2.25rem;
+}
+
+h2 {
+  font-size: 1.875rem;
+}
+
+p {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+/* ============================================
+   Link Styles
+   ============================================ */
+a {
+  text-decoration: none;
+}
+
