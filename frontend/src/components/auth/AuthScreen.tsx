@@ -1,9 +1,10 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowRight, Check, Eye, EyeOff } from '@/components/common/Icons';
+import { useAuth } from '@/providers/AuthProvider';
 
 type AuthMode = 'login' | 'register';
 
@@ -90,10 +91,11 @@ function validate(mode: AuthMode, form: FormState) {
 }
 
 export function AuthScreen({ mode }: AuthScreenProps) {
+  const { login, register } = useAuth();
   const [form, setForm] = useState<FormState>(initialForm);
   const [errors, setErrors] = useState<Errors>({});
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -110,6 +112,13 @@ export function AuthScreen({ mode }: AuthScreenProps) {
     [isLogin]
   );
 
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   const updateField = <T extends keyof FormState>(field: T, value: FormState[T]) => {
     setForm((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: undefined }));
@@ -125,12 +134,21 @@ export function AuthScreen({ mode }: AuthScreenProps) {
     }
 
     setLoading(true);
-    setToast('');
+    setToast(null);
 
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    setLoading(false);
-    setToast(isLogin ? 'Welcome back! 🎉' : 'Account created!');
+    try {
+      if (isLogin) {
+        await login(form.email, form.password);
+        setToast({ message: 'Welcome back! 🎉', type: 'success' });
+      } else {
+        await register(form.name, form.email, form.password);
+        setToast({ message: 'Account created! 🎉', type: 'success' });
+      }
+    } catch (err: any) {
+      setToast({ message: err.message || 'An error occurred during authentication.', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -139,10 +157,14 @@ export function AuthScreen({ mode }: AuthScreenProps) {
         <motion.div
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="fixed right-5 top-5 z-50 rounded-2xl border border-brand/20 bg-white px-5 py-3 text-sm font-semibold text-ink shadow"
+          className={`fixed right-5 top-5 z-50 rounded-2xl border px-5 py-3 text-sm font-semibold shadow ${
+            toast.type === 'error'
+              ? 'border-red-200 bg-red-50 text-red-600'
+              : 'border-brand/20 bg-white text-ink'
+          }`}
           role="status"
         >
-          {toast}
+          {toast.message}
         </motion.div>
       ) : null}
 

@@ -3,32 +3,15 @@ import type { Config } from 'tailwindcss';
 const config: Config = {
   darkMode: 'class',
   content: [
-    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
       colors: {
-        brand: {
-          DEFAULT: '#7C71F0',
-          light: '#E9E5FF',
-          dark: '#2A1D6E',
-        },
-        mint: {
-          DEFAULT: '#7DD9B3',
-          light: '#D1FAE5',
-          dark: '#065F46',
-        },
-        cream: {
-          DEFAULT: '#FDE68A',
-          light: '#FEF9C3',
-          dark: '#78350F',
-        },
-        blush: {
-          DEFAULT: '#F9A8D4',
-          light: '#FCE7F3',
-          dark: '#831843',
-        },
+        brand: { DEFAULT: '#7C71F0', light: '#E9E5FF', dark: '#2A1D6E', mid: '#534AB7' },
+        mint: { DEFAULT: '#7DD9B3', light: '#D1FAE5', dark: '#065F46', mid: '#059669' },
+        cream: { DEFAULT: '#FDE68A', light: '#FEF9C3', dark: '#78350F', mid: '#D97706' },
+        blush: { DEFAULT: '#F9A8D4', light: '#FCE7F3', dark: '#831843', mid: '#DB2777' },
         ink: '#0F0F0F',
         surface: '#F7F7F5',
       },
