@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
 import { db } from '../../shared/db/mysql.js';
 import { redis } from '../../shared/redis/redis.js';
 import { AppError } from '../../shared/errors/AppError.js';
@@ -16,9 +17,9 @@ import type { RegisterDTO, LoginDTO, AuthResponse, UserResponse } from './auth.t
 import type { TokenPair } from '../../shared/types/common.types.js';
 
 export class AuthService {
-  private async getUserById(userId: number): Promise<UserResponse> {
+  private async getUserById(userId: string): Promise<UserResponse> {
     const users = await db.query<UserResponse[]>(
-      'SELECT id, email, name, plan, createdAt, updatedAt FROM users WHERE id = ?',
+      'SELECT id, email, name, plan, created_at AS createdAt, updated_at AS updatedAt FROM users WHERE id = ?',
       [userId]
     );
     const user = users[0];
@@ -44,20 +45,20 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.password, env.BCRYPT_ROUNDS);
     const plan = dto.plan || 'free';
 
-    const result = await db.query<{ insertId: number }>(
-      'INSERT INTO users (email, password, name, plan) VALUES (?, ?, ?, ?)',
-      [dto.email, passwordHash, dto.name, plan]
+    const userId = randomUUID();
+    await db.query(
+      'INSERT INTO users (id, email, password_hash, name, plan) VALUES (?, ?, ?, ?, ?)',
+      [userId, dto.email, passwordHash, dto.name, plan]
     );
 
-    const userId = result.insertId;
     const tokens = generateTokenPair(userId, dto.email, plan);
     const decoded = verifyRefreshToken(tokens.refreshToken);
     const expiresAt = new Date(decoded.exp * 1000);
     const tokenHash = hashToken(tokens.refreshToken);
 
     await db.query(
-      'INSERT INTO refresh_tokens (userId, tokenHash, jti, expiresAt, ipAddress, userAgent) VALUES (?, ?, ?, ?, ?, ?)',
-      [userId, tokenHash, decoded.jti, expiresAt, ipAddress || null, userAgent || null]
+      'INSERT INTO refresh_tokens (id, user_id, token_hash, family_id, user_agent, ip_address, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [decoded.jti, userId, tokenHash, randomUUID(), userAgent || null, ipAddress || null, expiresAt]
     );
 
     const ttlSeconds = decoded.exp - Math.floor(Date.now() / 1000);
@@ -78,11 +79,11 @@ export class AuthService {
 
   public async login(dto: LoginDTO, ipAddress?: string, userAgent?: string): Promise<AuthResponse> {
     const users = await db.query<
-      (UserResponse & { password?: string })[]
+      (UserResponse & { password_hash?: string })[]
     >('SELECT * FROM users WHERE email = ?', [dto.email]);
     const user = users[0];
-
-    const passwordHash = user ? user.password || '' : '$2b$12$dummyHashdummyHashdummyHashdummyHashdummyHashdummy';
+    console.log(user);
+    const passwordHash = user ? user.password_hash || '' : '';
     const isMatch = await bcrypt.compare(dto.password, passwordHash);
 
     if (!user || !isMatch) {
@@ -95,8 +96,8 @@ export class AuthService {
     const tokenHash = hashToken(tokens.refreshToken);
 
     await db.query(
-      'INSERT INTO refresh_tokens (userId, tokenHash, jti, expiresAt, ipAddress, userAgent) VALUES (?, ?, ?, ?, ?, ?)',
-      [user.id, tokenHash, decoded.jti, expiresAt, ipAddress || null, userAgent || null]
+      'INSERT INTO refresh_tokens (id, user_id, token_hash, family_id, user_agent, ip_address, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [decoded.jti, user.id, tokenHash, randomUUID(), userAgent || null, ipAddress || null, expiresAt]
     );
 
     const ttlSeconds = decoded.exp - Math.floor(Date.now() / 1000);
@@ -138,25 +139,25 @@ export class AuthService {
         userAgent,
       });
 
-      const activeSessions = await db.query<{ jti: string }[]>(
-        'SELECT jti FROM refresh_tokens WHERE userId = ?',
+      const activeSessions = await db.query<{ id: string }[]>(
+        'SELECT id FROM refresh_tokens WHERE user_id = ?',
         [payload.userId]
       );
       for (const session of activeSessions) {
-        await redis.del(`refresh_token:${session.jti}`);
+        await redis.del(`refresh_token:${session.id}`);
       }
-      await db.query('DELETE FROM refresh_tokens WHERE userId = ?', [payload.userId]);
+      await db.query('DELETE FROM refresh_tokens WHERE user_id = ?', [payload.userId]);
 
       throw new AppError('Token reuse detected. All active sessions have been revoked.', 403);
     }
 
-    const storedTokens = await db.query<{ tokenHash: string }[]>(
-      'SELECT tokenHash FROM refresh_tokens WHERE jti = ?',
+    const storedTokens = await db.query<{ token_hash: string }[]>(
+      'SELECT token_hash FROM refresh_tokens WHERE id = ?',
       [payload.jti]
     );
     const storedToken = storedTokens[0];
 
-    if (!storedToken || storedToken.tokenHash !== incomingHash) {
+    if (!storedToken || storedToken.token_hash !== incomingHash) {
       throw new AppError('Invalid refresh token.', 401);
     }
 
@@ -171,12 +172,12 @@ export class AuthService {
       await redis.setex(`used_jti:${payload.jti}`, oldRemainingTtl, '1');
     }
 
-    await db.query('DELETE FROM refresh_tokens WHERE jti = ?', [payload.jti]);
+    await db.query('DELETE FROM refresh_tokens WHERE id = ?', [payload.jti]);
     await redis.del(`refresh_token:${payload.jti}`);
 
     await db.query(
-      'INSERT INTO refresh_tokens (userId, tokenHash, jti, expiresAt, ipAddress, userAgent) VALUES (?, ?, ?, ?, ?, ?)',
-      [payload.userId, tokenHash, decoded.jti, expiresAt, ipAddress || null, userAgent || null]
+      'INSERT INTO refresh_tokens (id, user_id, token_hash, family_id, user_agent, ip_address, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [decoded.jti, payload.userId, tokenHash, randomUUID(), userAgent || null, ipAddress || null, expiresAt]
     );
 
     const ttlSeconds = decoded.exp - Math.floor(Date.now() / 1000);
@@ -216,14 +217,14 @@ export class AuthService {
       if (payload.exp && payload.exp > now) {
         await blacklistToken(payload.jti, payload.exp);
       }
-      await db.query('DELETE FROM refresh_tokens WHERE jti = ?', [payload.jti]);
+      await db.query('DELETE FROM refresh_tokens WHERE id = ?', [payload.jti]);
       await redis.del(`refresh_token:${payload.jti}`);
     }
 
     if (refreshToken) {
       try {
         const decodedRefresh = verifyRefreshToken(refreshToken);
-        await db.query('DELETE FROM refresh_tokens WHERE jti = ?', [decodedRefresh.jti]);
+        await db.query('DELETE FROM refresh_tokens WHERE id = ?', [decodedRefresh.jti]);
         await redis.del(`refresh_token:${decodedRefresh.jti}`);
       } catch {
         // Ignore
@@ -231,7 +232,7 @@ export class AuthService {
     }
   }
 
-  public async getMe(userId: number): Promise<UserResponse> {
+  public async getMe(userId: string): Promise<UserResponse> {
     return this.getUserById(userId);
   }
 }

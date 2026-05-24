@@ -15,10 +15,11 @@ export interface RefreshDTO {
 }
 
 export interface UserResponse {
-  id: number;
+  id: string;
   email: string;
   name: string;
   plan: string;
+  password_hash: string;
   createdAt: Date;
   updatedAt: Date;
 }
