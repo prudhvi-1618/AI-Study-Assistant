@@ -30,7 +30,9 @@ const startServer = async () => {
 
     // 3. Verify Redis Connection
     logger.info('Verifying Redis connection...');
-    await redis.connect();
+    if (redis.status === 'wait') {
+      await redis.connect();
+    }
     await redis.ping();
     logger.info('Redis connection verified successfully');
 

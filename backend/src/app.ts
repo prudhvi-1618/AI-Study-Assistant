@@ -47,7 +47,7 @@ app.get('/health', (_req, res) => {
 app.use('/api/v1', router);
 
 // Unknown routes handler
-app.all('*', (req, _res, next) => {
+app.use((req, _res, next) => {
   next(new AppError(`Can't find ${req.method} ${req.originalUrl} on this server!`, 404));
 });
 
