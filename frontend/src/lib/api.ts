@@ -1,18 +1,26 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+export function getAccessToken(): string | null {
+  return typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+}
+
+export function buildApiUrl(path: string): string {
+  return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+}
 
 export interface FetchOptions extends RequestInit {
   body?: any;
 }
 
 export async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T> {
-  const url = `${BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+  const url = buildApiUrl(path);
   
   const headers = new Headers(options.headers);
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
 
-  const accessToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  const accessToken = getAccessToken();
   if (accessToken && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${accessToken}`);
   }
@@ -69,7 +77,7 @@ async function attemptTokenRefresh(): Promise<boolean> {
   if (!refreshToken) return false;
 
   try {
-    const url = `${BASE_URL}/auth/refresh`;
+    const url = `${API_BASE_URL}/auth/refresh`;
     const res = await fetch(url, {
       method: 'POST',
       headers: {

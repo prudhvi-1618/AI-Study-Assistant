@@ -864,7 +864,7 @@ export default function FlashcardsPage() {
                               {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                             </div>
                             <FileText className={`w-4 h-4 shrink-0 ${isSelected ? 'text-brand' : 'text-gray-400'}`} />
-                            <span className="text-xs font-bold truncate flex-1 leading-tight">{doc.name}</span>
+                            <span className="text-xs font-bold truncate flex-1 leading-tight">{doc.filename}</span>
                           </div>
                         );
                       })}

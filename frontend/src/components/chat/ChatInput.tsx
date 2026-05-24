@@ -8,6 +8,7 @@ interface ChatInputProps {
   loading: boolean;
   activeMode: 'Ask' | 'Summarize' | 'Quiz' | 'Flashcards';
   onChangeMode: (mode: 'Ask' | 'Summarize' | 'Quiz' | 'Flashcards') => void;
+  disabledReason?: string;
 }
 
 const modes = ['Ask', 'Summarize', 'Quiz', 'Flashcards'] as const;
@@ -17,6 +18,7 @@ export function ChatInput({
   loading,
   activeMode,
   onChangeMode,
+  disabledReason
 }: ChatInputProps) {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -38,7 +40,7 @@ export function ChatInput({
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!value.trim() || loading) return;
+    if (!value.trim() || loading || disabledReason) return;
 
     onSend(value);
     setValue('');
@@ -71,13 +73,13 @@ export function ChatInput({
           </button>
 
           {/* Voice Input */}
-          <button
+          {/* <button
             type="button"
             className="w-10 h-10 rounded-2xl flex items-center justify-center hover:bg-gray-50 text-gray-400 hover:text-ink transition-colors cursor-pointer shrink-0"
             title="Voice input"
           >
             <Mic className="w-4.5 h-4.5" />
-          </button>
+          </button> */}
 
           {/* Text Area */}
           <textarea
@@ -88,19 +90,25 @@ export function ChatInput({
             onKeyDown={handleKeyDown}
             placeholder="Ask anything about your study materials..."
             className="flex-1 resize-none bg-transparent outline-none text-sm max-h-40 py-2.5 placeholder:text-gray-400 leading-relaxed text-ink select-text focus:outline-none"
-            disabled={loading}
+            disabled={loading || Boolean(disabledReason)}
           />
 
           {/* Send Button */}
           <button
             type="submit"
-            disabled={!value.trim() || loading}
+            disabled={!value.trim() || loading || Boolean(disabledReason)}
             className="w-12 h-12 rounded-2xl bg-brand hover:bg-brand-mid text-white flex items-center justify-center transition-all disabled:opacity-30 disabled:hover:bg-brand cursor-pointer shrink-0 shadow-sm"
             title="Send query"
           >
             <ArrowUp className="w-5 h-5 text-white" />
           </button>
         </div>
+
+        {disabledReason ? (
+          <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+            {disabledReason}
+          </div>
+        ) : null}
 
         {/* AI Mode Toggle Pills */}
         <div className="flex flex-wrap items-center gap-1.5 px-1 self-start select-none">

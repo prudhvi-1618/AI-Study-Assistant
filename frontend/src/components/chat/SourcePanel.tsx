@@ -12,23 +12,8 @@ interface SourcePanelProps {
   onClose: () => void;
 }
 
-const fallbackSources: Source[] = [
-  {
-    title: 'Physics_Chapter3_Wave_Mechanics.pdf',
-    page: 12,
-    relevance: 96,
-    excerpt: 'Wave interference occurs when two or more waves overlap in the same region of space. The resultant displacement is the algebraic sum of the individual wave displacements.',
-  },
-  {
-    title: 'Chemistry_Notes_Organic_Compounds.docx',
-    page: 4,
-    relevance: 89,
-    excerpt: 'Covalent carbon bonding generates structural configurations that define chemical stability and compound behavior in reactions.',
-  },
-];
-
 export function SourcePanel({ sources = [], isOpen, onClose }: SourcePanelProps) {
-  const activeSources = sources.length > 0 ? sources : fallbackSources;
+  const activeSources = sources;
 
   // Panel Inner Content
   const panelContent = (

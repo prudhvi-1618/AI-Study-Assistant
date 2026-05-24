@@ -3,14 +3,16 @@
 import React from 'react';
 import { Brain, MessageSquare, Plus, Settings, MoreVertical } from 'lucide-react';
 import Link from 'next/link';
+import type { ChatSessionSummary } from '@/lib/stream';
 
 interface ChatSidebarProps {
   onNewChat?: () => void;
   activeChatId?: string;
   onSelectChat?: (id: string) => void;
+  chats?: ChatSessionSummary[];
 }
 
-const chats = [
+const fallbackChats = [
   {
     id: 'chat-1',
     title: 'Explain wave mechanics',
@@ -31,7 +33,30 @@ const chats = [
   },
 ];
 
-export function ChatSidebar({ onNewChat, activeChatId, onSelectChat }: ChatSidebarProps) {
+function formatChatTime(value?: string) {
+  if (!value) return 'New';
+  const date = new Date(value);
+  const diffMs = Date.now() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffHours < 48) return 'Yesterday';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+export function ChatSidebar({ onNewChat, activeChatId, onSelectChat, chats }: ChatSidebarProps) {
+  const visibleChats = chats && chats.length > 0
+    ? chats.map((chat) => ({
+        id: chat.id,
+        title: chat.title || chat.last_message || 'Untitled study chat',
+        time: formatChatTime(chat.last_message_at || chat.created_at),
+        active: false,
+      }))
+    : fallbackChats;
+
   return (
     <aside className="fixed left-0 top-0 h-screen w-72 bg-ink text-white hidden lg:flex flex-col border-r border-white/10 z-40">
       {/* Top Section */}
@@ -64,7 +89,7 @@ export function ChatSidebar({ onNewChat, activeChatId, onSelectChat }: ChatSideb
         </span>
 
         <div className="space-y-1">
-          {chats.map((chat) => {
+          {visibleChats.map((chat) => {
             const isActive = activeChatId ? activeChatId === chat.id : chat.active;
             return (
               <div

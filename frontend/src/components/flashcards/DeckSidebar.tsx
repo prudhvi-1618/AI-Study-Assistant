@@ -62,14 +62,14 @@ export function DeckSidebar({
       {/* User Footer Profile */}
       <div className="mt-auto border-t border-white/10 p-4 flex items-center gap-2.5 mx-3 mb-4 pt-4">
         <div className="w-8 h-8 rounded-full bg-brand-light text-brand-dark flex items-center justify-center font-extrabold text-xs shrink-0 select-none">
-          RS
+          NP
         </div>
         <div className="flex flex-col min-w-0">
           <span className="text-xs font-bold text-white truncate block">
-            Riya Sharma
+            Prudhvi
           </span>
           <span className="text-[10px] text-gray-400 truncate block">
-            riya@student.edu
+            nirujogiprudhvi@gmail.com
           </span>
         </div>
       </div>

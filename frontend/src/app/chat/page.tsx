@@ -9,9 +9,8 @@ import { MessageList } from '@/components/chat/MessageList';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { SourcePanel } from '@/components/chat/SourcePanel';
 import { FloatingMobileActions } from '@/components/chat/FloatingMobileActions';
-import { useChatStream, Message } from '@/lib/stream';
+import { useChatStream } from '@/lib/stream';
 import { X } from 'lucide-react';
-import { div } from 'framer-motion/client';
 
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
@@ -23,6 +22,10 @@ export default function ChatPage() {
     setActiveMode,
     sendMessage,
     clearChat,
+    sessions,
+    activeSessionId,
+    activeSessionStatus,
+    loadSession,
   } = useChatStream();
 
   const [sourcesPanelOpen, setSourcesPanelOpen] = useState(false);
@@ -63,7 +66,12 @@ export default function ChatPage() {
         className="min-h-screen bg-surface flex"
       >
         {/* 1. Desktop Chat Sidebar (Hidden on mobile/tablet) */}
-        <ChatSidebar activeChatId="chat-1" onNewChat={clearChat} />
+        <ChatSidebar
+          activeChatId={activeSessionId ?? undefined}
+          onNewChat={clearChat}
+          onSelectChat={loadSession}
+          chats={sessions}
+        />
 
         {/* 2. Responsive Mobile Sidebar slide-over drawer */}
         <AnimatePresence>
@@ -94,7 +102,15 @@ export default function ChatPage() {
                 >
                   <X className="w-4.5 h-4.5" />
                 </button>
-                <ChatSidebar activeChatId="chat-1" onNewChat={clearChat} />
+                <ChatSidebar
+                  activeChatId={activeSessionId ?? undefined}
+                  onNewChat={clearChat}
+                  onSelectChat={(id) => {
+                    loadSession(id);
+                    setMobileMenuOpen(false);
+                  }}
+                  chats={sessions}
+                />
               </motion.div>
             </>
           )}
@@ -134,6 +150,7 @@ export default function ChatPage() {
                 loading={loading}
                 activeMode={activeMode}
                 onChangeMode={setActiveMode}
+                disabledReason={activeSessionStatus === 'archived' ? 'This chat session is archived and cannot accept new messages.' : undefined}
               />
             </div>
           </main>
