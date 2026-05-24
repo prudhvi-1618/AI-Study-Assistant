@@ -32,6 +32,12 @@ const envSchema = z
     GEMINI_API_KEY: z.string().optional(),
     GOOGLE_API_KEY: z.string().optional(),
     OPENAI_API_KEY: z.string().optional(),
+    FLASHCARD_GENERATION_MODEL: z.string().default("gemini-3.5-flash"),
+    QUIZ_GENERATION_MODEL: z.string().default("gemini-3.5-flash"),
+    CHAT_MODEL: z.string().default("gemini-3.5-flash"),
+    REDIS_CACHE_TTL_SECONDS: z.coerce.number().default(3600),
+    MAX_FLASHCARDS_PER_DECK: z.coerce.number().default(50),
+    MAX_QUIZ_QUESTIONS: z.coerce.number().default(30),
   })
   .refine((data) => data.ACCESS_TOKEN_SECRET !== data.REFRESH_TOKEN_SECRET, {
     message: 'ACCESS_TOKEN_SECRET and REFRESH_TOKEN_SECRET must be distinct',
