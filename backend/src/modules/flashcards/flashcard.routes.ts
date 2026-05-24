@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { authenticate } from '../../shared/middleware/auth.middleware.js';
 import { FlashcardController } from './flashcard.controller.js';
 
@@ -16,7 +16,7 @@ const generationRateLimiter = rateLimit({
     statusCode: 429,
     message: 'Too many flashcard generation requests. Please try again after an hour.',
   },
-  keyGenerator: (req: any) => req.user?.userId || req.ip,
+  keyGenerator: (req: any) => req.user?.userId || ipKeyGenerator(req.ip),
   standardHeaders: true,
   legacyHeaders: false,
 });

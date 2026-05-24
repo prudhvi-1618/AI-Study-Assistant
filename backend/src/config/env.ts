@@ -1,4 +1,4 @@
-import dotenv from 'dotenv';
+﻿import dotenv from 'dotenv';
 import { z } from 'zod';
 
 dotenv.config();
@@ -16,25 +16,34 @@ const envSchema = z
     REDIS_PORT: z.coerce.number().default(6379),
     REDIS_PASSWORD: z.string().optional().or(z.literal('')),
     ACCESS_TOKEN_SECRET: z.string().min(32, 'ACCESS_TOKEN_SECRET must be at least 32 characters long'),
-    REFRESH_TOKEN_SECRET: z.string().min(32, 'REFRESH_TOKEN_SECRET must be at least 32 characters long'),
+    REFRESH_TOKEN_SECRET: z.string().min(32, 'REFRESH_TOKEN_SECRET must be distinct'),
     ACCESS_TOKEN_TTL: z.string().min(1),
     REFRESH_TOKEN_TTL: z.string().min(1),
     BCRYPT_ROUNDS: z.coerce.number().default(12),
-    // Upload module additions
     MAX_FILE_SIZE_MB: z.coerce.number().default(50),
-    ALLOWED_FILE_TYPES: z.string().default("pdf,docx,txt,pptx,md"),
+    ALLOWED_FILE_TYPES: z.string().default('pdf,docx,txt,pptx,md'),
     BULLMQ_CONCURRENCY: z.coerce.number().default(3),
-    EMBEDDING_MODEL: z.string().default("gemini-embedding-2-preview"),
+    EMBEDDING_MODEL: z.string().default('gemini-embedding-2-preview'),
     EMBEDDING_BATCH_SIZE: z.coerce.number().default(100),
-    QDRANT_COLLECTION_NAME: z.string().default("document_embeddings"),
+    QDRANT_COLLECTION_NAME: z.string().default('document_embeddings'),
     QDRANT_URL: z.string().min(1),
     REDIS_URL: z.string().optional(),
     GEMINI_API_KEY: z.string().optional(),
     GOOGLE_API_KEY: z.string().optional(),
-    OPENAI_API_KEY: z.string().optional(),
-    FLASHCARD_GENERATION_MODEL: z.string().default("gemini-3.5-flash"),
-    QUIZ_GENERATION_MODEL: z.string().default("gemini-3.5-flash"),
-    CHAT_MODEL: z.string().default("gemini-3.5-flash"),
+    OPENAI_API_KEY: z
+      .string()
+      .optional()
+      .transform((value) => (value && value.startsWith('your_') ? undefined : value)),
+    FLASHCARD_GENERATION_MODEL: z.string().default('gemini-3.5-flash'),
+    QUIZ_GENERATION_MODEL: z.string().default('gemini-3.5-flash'),
+    CHAT_MODEL: z.string().default('gemini-3.5-flash'),
+    CHAT_MAX_HISTORY_MESSAGES: z.coerce.number().default(20),
+    CHAT_MEMORY_SUMMARY_THRESHOLD: z.coerce.number().default(10),
+    SUMMARY_MODEL: z.string().default('gemini-3.5-flash'),
+    REDIS_CHAT_MEMORY_TTL: z.coerce.number().default(86400),
+    REDIS_SUMMARY_CACHE_TTL: z.coerce.number().default(3600),
+    MAX_CONTEXT_CHUNKS: z.coerce.number().default(5),
+    STREAMING_ENABLED: z.string().default('true'),
     REDIS_CACHE_TTL_SECONDS: z.coerce.number().default(3600),
     MAX_FLASHCARDS_PER_DECK: z.coerce.number().default(50),
     MAX_QUIZ_QUESTIONS: z.coerce.number().default(30),
@@ -43,9 +52,9 @@ const envSchema = z
     message: 'ACCESS_TOKEN_SECRET and REFRESH_TOKEN_SECRET must be distinct',
     path: ['REFRESH_TOKEN_SECRET'],
   })
-  .refine((data) => data.GEMINI_API_KEY || data.GOOGLE_API_KEY, {
-    message: 'At least one of GEMINI_API_KEY or GOOGLE_API_KEY must be provided',
-    path: ['GEMINI_API_KEY'],
+  .refine((data) => data.GEMINI_API_KEY || data.GOOGLE_API_KEY || data.OPENAI_API_KEY, {
+    message: 'At least one of GEMINI_API_KEY, GOOGLE_API_KEY, or OPENAI_API_KEY must be provided',
+    path: ['OPENAI_API_KEY'],
   });
 
 const parsed = envSchema.safeParse(process.env);
