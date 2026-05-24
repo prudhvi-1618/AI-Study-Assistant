@@ -11,10 +11,10 @@ export interface Flashcard {
   difficulty: 'easy' | 'medium' | 'hard';
   question: string;
   answer: string;
-  hint: string;
-  example: string;
-  source: string;
-  importance: 'High' | 'Medium' | 'Low';
+  hint?: string;
+  example?: string;
+  source?: string;
+  importance?: 'High' | 'Medium' | 'Low';
 }
 
 export interface Deck {

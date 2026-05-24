@@ -20,6 +20,7 @@ import {
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { BottomNav } from '@/components/dashboard/BottomNav';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { apiFetch } from '@/lib/api';
 
 // --- Type Definitions ---
 type DocumentStatus = 'ready' | 'processing' | 'error';
@@ -65,20 +66,24 @@ const bannerThemes = {
   md: { bg: 'bg-gray-100', iconText: 'text-gray-500' }
 };
 
-const initialDocuments: StudyDocument[] = [
-  { id: 'doc-1', name: 'Physics_Chapter3_Wave_Mechanics.pdf', type: 'pdf', size: '4.2 MB', sizeInBytes: 4404019, uploadedAt: '2 hours ago', uploadedAtDate: new Date(Date.now() - 2 * 60 * 60 * 1000), status: 'ready', flashcards: 48, mcqs: 32 },
-  { id: 'doc-2', name: 'Chemistry_Notes_Organic_Compounds.docx', type: 'docx', size: '1.8 MB', sizeInBytes: 1887436, uploadedAt: '5 hours ago', uploadedAtDate: new Date(Date.now() - 5 * 60 * 60 * 1000), status: 'processing' },
-  { id: 'doc-3', name: 'Math_Formulas_Trigonometry.pdf', type: 'pdf', size: '1.2 MB', sizeInBytes: 1258291, uploadedAt: '1 day ago', uploadedAtDate: new Date(Date.now() - 24 * 60 * 60 * 1000), status: 'ready', flashcards: 32, mcqs: 20 },
-  { id: 'doc-4', name: 'History_Timeline_World_War_II.txt', type: 'txt', size: '480 KB', sizeInBytes: 491520, uploadedAt: '2 days ago', uploadedAtDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), status: 'ready', flashcards: 18, mcqs: 12 },
-  { id: 'doc-5', name: 'Biology_Lecture_Cells_Genetics.docx', type: 'docx', size: '2.4 MB', sizeInBytes: 2516582, uploadedAt: '3 days ago', uploadedAtDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), status: 'ready', flashcards: 36, mcqs: 24 },
-  { id: 'doc-6', name: 'Computer_Science_Python_Basics.pptx', type: 'pptx', size: '8.7 MB', sizeInBytes: 9122611, uploadedAt: '4 days ago', uploadedAtDate: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000), status: 'ready', flashcards: 40, mcqs: 30 },
-  { id: 'doc-7', name: 'Syllabus_Advanced_Calculus.pdf', type: 'pdf', size: '3.1 MB', sizeInBytes: 3250585, uploadedAt: '5 days ago', uploadedAtDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), status: 'processing' },
-  { id: 'doc-8', name: 'English_Literature_Shakespeare.docx', type: 'docx', size: '920 KB', sizeInBytes: 942080, uploadedAt: '1 week ago', uploadedAtDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), status: 'ready', flashcards: 15, mcqs: 10 },
-  { id: 'doc-9', name: 'Readme_Study_Guide_Overview.md', type: 'md', size: '15 KB', sizeInBytes: 15360, uploadedAt: '1 week ago', uploadedAtDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), status: 'ready', flashcards: 10, mcqs: 6 },
-  { id: 'doc-10', name: 'Macroeconomics_Summary.pptx', type: 'pptx', size: '14.2 MB', sizeInBytes: 14889779, uploadedAt: '2 weeks ago', uploadedAtDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), status: 'processing' },
-  { id: 'doc-11', name: 'Notes_Neuroscience_Intro.txt', type: 'txt', size: '350 KB', sizeInBytes: 358400, uploadedAt: '2 weeks ago', uploadedAtDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), status: 'ready', flashcards: 25, mcqs: 15 },
-  { id: 'doc-12', name: 'Failed_Upload_Corrupted.pdf', type: 'pdf', size: '2.1 MB', sizeInBytes: 2202009, uploadedAt: '3 weeks ago', uploadedAtDate: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000), status: 'error' }
-];
+function formatRelativeTime(dateStr: string | Date): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+  
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 // --- Framer Motion Animations ---
 const containerVariants: Variants = {
@@ -122,9 +127,9 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-// --- Main Page Component ---
 export default function UploadCenterPage() {
-  const [documents, setDocuments] = useState<StudyDocument[]>(initialDocuments);
+  const [documents, setDocuments] = useState<StudyDocument[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [uploadQueue, setUploadQueue] = useState<UploadFile[]>([]);
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [sortBy, setSortBy] = useState<string>('Newest first');
@@ -140,83 +145,108 @@ export default function UploadCenterPage() {
     };
   }, []);
 
-  // --- Simulate Upload Progression ---
-  const simulateUpload = useCallback((uploadId: string) => {
-    let progressVal = 0;
-
-    const interval = setInterval(() => {
-      progressVal += Math.floor(Math.random() * 15) + 8; // Random incremental step
-      
-      if (progressVal >= 100) {
-        progressVal = 100;
-        clearInterval(interval);
-        delete uploadIntervalsRef.current[uploadId];
-
-        // Phase 1 complete: switch to processing
-        setUploadQueue((prev) =>
-          prev.map((f) => (f.id === uploadId ? { ...f, progress: 100, status: 'processing' } : f))
-        );
-
-        // Phase 2: Processing delay of 1.5s then mark as done and add to documents
-        setTimeout(() => {
-          setUploadQueue((prev) =>
-            prev.map((f) => (f.id === uploadId ? { ...f, status: 'done' } : f))
-          );
-
-          // Get file information to insert
-          setUploadQueue((currentQueue) => {
-            const uploadedFile = currentQueue.find((f) => f.id === uploadId);
-            if (uploadedFile) {
-              const newDoc: StudyDocument = {
-                id: uploadedFile.id,
-                name: uploadedFile.name,
-                type: uploadedFile.type,
-                size: formatBytes(uploadedFile.size),
-                sizeInBytes: uploadedFile.size,
-                uploadedAt: 'Just now',
-                uploadedAtDate: new Date(),
-                status: 'ready',
-                flashcards: Math.floor(Math.random() * 30) + 15,
-                mcqs: Math.floor(Math.random() * 20) + 10
-              };
-              // Add to documents grid
-              setDocuments((prevDocs) => [newDoc, ...prevDocs]);
-            }
-            return currentQueue;
-          });
-        }, 1500);
-      } else {
-        setUploadQueue((prev) =>
-          prev.map((f) => (f.id === uploadId ? { ...f, progress: progressVal } : f))
-        );
-      }
-    }, 200);
-
-    uploadIntervalsRef.current[uploadId] = interval;
+  const refreshDocuments = useCallback(async () => {
+    try {
+      const data = await apiFetch<{ documents: any[]; total: number }>('/upload/documents');
+      const mapped = data.documents.map((doc: any) => ({
+        id: doc.id,
+        name: doc.filename,
+        type: doc.file_type as FileType,
+        size: formatBytes(doc.size_bytes),
+        sizeInBytes: doc.size_bytes,
+        uploadedAt: formatRelativeTime(doc.created_at),
+        uploadedAtDate: new Date(doc.created_at),
+        status: (doc.status === 'ready' ? 'ready' : doc.status === 'failed' ? 'error' : 'processing') as DocumentStatus,
+        flashcards: doc.chunk_count ? Math.max(12, Math.floor(doc.chunk_count * 1.5)) : undefined,
+        mcqs: doc.chunk_count ? Math.max(8, Math.floor(doc.chunk_count * 0.8)) : undefined,
+      }));
+      setDocuments(mapped);
+    } catch (err) {
+      console.error('Failed to refresh documents', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // Fetch documents on mount
+  useEffect(() => {
+    refreshDocuments();
+  }, [refreshDocuments]);
+
+  // Poll for document status updates if there are any files processing
+  useEffect(() => {
+    const hasProcessing = documents.some((doc) => doc.status === 'processing');
+    if (!hasProcessing) return;
+
+    const interval = setInterval(async () => {
+      await refreshDocuments();
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [documents, refreshDocuments]);
 
   // --- react-dropzone integration ---
   const onDrop = useCallback(
-    (acceptedFiles: File[]) => {
-      acceptedFiles.forEach((file) => {
+    async (acceptedFiles: File[]) => {
+      // 1. Create a queue item locally for each file to show instant progress
+      const newUploads: UploadFile[] = acceptedFiles.map((file) => {
         const fileId = Math.random().toString(36).substring(7);
-        const newUpload: UploadFile = {
+        return {
           id: fileId,
           name: file.name,
           size: file.size,
           type: getFileType(file.name),
-          progress: 0,
+          progress: 20,
           status: 'uploading',
           file: file
         };
-
-        // Add to active queue
-        setUploadQueue((prev) => [...prev, newUpload]);
-        // Trigger simulated progression
-        simulateUpload(fileId);
       });
+
+      setUploadQueue((prev) => [...prev, ...newUploads]);
+
+      const formData = new FormData();
+      acceptedFiles.forEach((file) => {
+        formData.append('files', file);
+      });
+
+      try {
+        // Mock progress update while uploading
+        setUploadQueue((prev) =>
+          prev.map((item) =>
+            newUploads.some((u) => u.name === item.name) ? { ...item, progress: 60 } : item
+          )
+        );
+
+        const response = await apiFetch<{ uploads: Array<{ documentId: string; filename: string; status: string }> }>('/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        // Update local upload queue state to 'processing' and progress to 100%
+        setUploadQueue((prev) =>
+          prev.map((item) => {
+            const uploaded = response.uploads.find((u) => u.filename === item.name);
+            if (uploaded) {
+              return { ...item, id: uploaded.documentId, progress: 100, status: 'processing' };
+            }
+            return item;
+          })
+        );
+
+        // Fetch fresh documents list right away to show them in the grid (which will show them as processing)
+        await refreshDocuments();
+
+      } catch (err: any) {
+        console.error('Upload failed', err);
+        // Set local uploads in this batch to error
+        setUploadQueue((prev) =>
+          prev.map((item) =>
+            newUploads.some((u) => u.name === item.name) ? { ...item, progress: 100, status: 'error' } : item
+          )
+        );
+      }
     },
-    [simulateUpload]
+    [refreshDocuments]
   );
 
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
@@ -232,9 +262,16 @@ export default function UploadCenterPage() {
   });
 
   // --- Deletion Handler ---
-  const handleDelete = useCallback((id: string) => {
-    // Remove from documents
-    setDocuments((prev) => prev.filter((doc) => doc.id !== id));
+  const handleDelete = useCallback(async (id: string) => {
+    try {
+      await apiFetch(`/upload/documents/${id}`, {
+        method: 'DELETE',
+      });
+      // Remove from documents
+      setDocuments((prev) => prev.filter((doc) => doc.id !== id));
+    } catch (err) {
+      console.error('Failed to delete document', err);
+    }
   }, []);
 
   // --- Clear completed uploads from queue ---
@@ -555,8 +592,20 @@ export default function UploadCenterPage() {
           </div>
         </div>
 
-        {/* Component 5 — Document Grid & Empty States */}
-        {sortedDocuments.length === 0 ? (
+        {loading ? (
+          /* Component 5 — Loading State */
+          <div className="bg-white border border-gray-100 rounded-2xl py-16 px-4 text-center select-none shadow-sm animate-fadeInUp">
+            <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-4 shrink-0">
+              <Loader2 className="w-8 h-8 text-brand animate-spin" />
+            </div>
+            <h3 className="text-lg font-bold text-ink sentence-case">
+              Loading your study documents
+            </h3>
+            <p className="text-sm text-gray-500 mt-1 max-w-xs mx-auto sentence-case animate-pulse">
+              Please wait while we fetch your documents...
+            </p>
+          </div>
+        ) : sortedDocuments.length === 0 ? (
           /* Component 6 — Empty State */
           <div className="bg-white border border-gray-100 rounded-2xl py-16 px-4 text-center select-none shadow-sm animate-fadeInUp">
             <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-4 shrink-0">

@@ -13,6 +13,7 @@ interface FlashcardProps {
   onFlip: () => void;
   onSwipeLeft?: () => void;  // Mark hard
   onSwipeRight?: () => void; // Mark easy
+  onExplain?: (cardId: string) => void;
 }
 
 export function Flashcard({
@@ -23,6 +24,7 @@ export function Flashcard({
   onFlip,
   onSwipeLeft,
   onSwipeRight,
+  onExplain,
 }: FlashcardProps) {
   const dragX = useMotionValue(0);
   // Map drag offset x to Z-axis swing rotation for a natural card deck swipe effect
@@ -115,16 +117,18 @@ export function Flashcard({
           </div>
 
           {/* Hint Section */}
-          <div
-            onClick={(e) => e.stopPropagation()} // Prevent card flip on hint click
-            className="bg-surface rounded-2xl p-4 text-xs md:text-sm text-gray-600 border border-gray-100/50 mt-auto flex items-start gap-2"
-          >
-            <Sparkles className="w-4 h-4 text-brand shrink-0 mt-0.5" />
-            <p className="sentence-case">
-              <span className="font-bold">Hint: </span>
-              {card.hint}
-            </p>
-          </div>
+          {card.hint && (
+            <div
+              onClick={(e) => e.stopPropagation()} // Prevent card flip on hint click
+              className="bg-surface rounded-2xl p-4 text-xs md:text-sm text-gray-600 border border-gray-100/50 mt-auto flex items-start gap-2"
+            >
+              <Sparkles className="w-4 h-4 text-brand shrink-0 mt-0.5" />
+              <p className="sentence-case">
+                <span className="font-bold">Hint: </span>
+                {card.hint}
+              </p>
+            </div>
+          )}
 
           {/* Tap reveal label */}
           <div className="text-[10px] md:text-xs text-gray-400 text-center mt-4 font-semibold select-none sentence-case">
@@ -143,12 +147,27 @@ export function Flashcard({
         >
           {/* Top Row: Tags */}
           <div className="flex justify-between items-center select-none">
-            <span className="bg-white/20 text-white rounded-full px-3 py-1 text-xs font-bold tracking-tight sentence-case">
-              Answer Key
-            </span>
-            <span className="text-[10px] md:text-xs font-bold bg-white/20 text-white px-2 py-0.5 rounded-lg select-none">
-              Exam Importance: {card.importance}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="bg-white/20 text-white rounded-full px-3 py-1 text-xs font-bold tracking-tight sentence-case">
+                Answer Key
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onExplain?.(card.id);
+                }}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/10 hover:bg-white/25 text-white transition-colors cursor-pointer border border-white/10"
+                type="button"
+              >
+                <Sparkles className="w-3 h-3 animate-pulse" />
+                <span>AI Explain</span>
+              </button>
+            </div>
+            {card.importance && (
+              <span className="text-[10px] md:text-xs font-bold bg-white/20 text-white px-2 py-0.5 rounded-lg select-none">
+                Exam Importance: {card.importance}
+              </span>
+            )}
           </div>
 
           {/* Answer Text */}
@@ -161,20 +180,24 @@ export function Flashcard({
             </div>
 
             {/* Example Box */}
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="mt-4 bg-white/10 rounded-2xl p-4 text-xs md:text-sm leading-relaxed text-white/90 border border-white/5"
-            >
-              <p className="sentence-case">
-                <span className="font-bold text-white">Example: </span>
-                {card.example}
-              </p>
-            </div>
+            {card.example && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="mt-4 bg-white/10 rounded-2xl p-4 text-xs md:text-sm leading-relaxed text-white/90 border border-white/5"
+              >
+                <p className="sentence-case">
+                  <span className="font-bold text-white">Example: </span>
+                  {card.example}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Bottom Meta */}
           <div className="flex items-center justify-between mt-auto pt-4 border-t border-white/10 text-[10px] md:text-xs text-white/70 font-semibold select-none">
-            <span className="truncate max-w-[200px] sentence-case">Source: {card.source}</span>
+            <span className="truncate max-w-[200px] sentence-case">
+              {card.source ? `Source: ${card.source}` : ''}
+            </span>
             <span className="sentence-case">Card {index + 1} of {total}</span>
           </div>
         </div>

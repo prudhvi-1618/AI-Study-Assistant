@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, Plus, X, RefreshCw } from 'lucide-react';
+import { Brain, Plus, X, RefreshCw, Loader2, Sparkles, Check, FileText } from 'lucide-react';
 
 // Sidebar & Global Nav Components
 import { Sidebar } from '@/components/dashboard/Sidebar';
@@ -25,13 +26,12 @@ import { SessionSummary } from '@/components/flashcards/SessionSummary';
 import { EmptyState } from '@/components/flashcards/EmptyState';
 import { FloatingMobileControls } from '@/components/flashcards/FloatingMobileControls';
 
-// Mock Data & Service
+// Data types and api client
 import {
-  mockDecks,
-  getFlashcardsForDeck,
   Flashcard as FlashcardType,
   Deck as DeckType,
 } from '@/lib/flashcards/data';
+import { apiFetch } from '@/lib/api';
 
 export default function FlashcardsPage() {
   const { user } = useAuth();
@@ -39,9 +39,19 @@ export default function FlashcardsPage() {
   const email = user?.email || '';
   const initials = name.trim().split(/\s+/).map(n => n[0]).join('').substring(0, 2).toUpperCase() || '??';
 
+  const colors = [
+    'bg-brand-light text-brand-dark',
+    'bg-mint-light text-mint-dark',
+    'bg-cream-light text-cream-dark',
+    'bg-blush-light text-blush-dark',
+  ];
+
   // Page states
-  const [decks, setDecks] = useState<DeckType[]>(mockDecks);
-  const [activeDeckId, setActiveDeckId] = useState<string>('1');
+  const [decks, setDecks] = useState<DeckType[]>([]);
+  const [activeDeckId, setActiveDeckId] = useState<string>('');
+  const [deckCards, setDeckCards] = useState<FlashcardType[]>([]);
+  const [isLoadingDecks, setIsLoadingDecks] = useState<boolean>(true);
+  const [isLoadingCards, setIsLoadingCards] = useState<boolean>(false);
   const [activeTopic, setActiveTopic] = useState<string>('All');
   const [currentCardIndex, setCurrentCardIndex] = useState<number>(0);
   const [isFlipped, setIsFlipped] = useState<boolean>(false);
@@ -58,15 +68,27 @@ export default function FlashcardsPage() {
   const [weakCardsFilterActive, setWeakCardsFilterActive] = useState<boolean>(false);
   const [weakCardIds, setWeakCardIds] = useState<string[]>([]);
 
+  // Document Selection & Generation Modal state
+  const [isGenerateModalOpen, setIsGenerateModalOpen] = useState<boolean>(false);
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+  const [cardCount, setCardCount] = useState<number>(20);
+  const [generationDifficulty, setGenerationDifficulty] = useState<'easy' | 'medium' | 'hard' | 'mixed'>('mixed');
+  const [topicFocus, setTopicFocus] = useState<string>('');
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+
+  // AI Explanation drawer state
+  const [explanationCardId, setExplanationCardId] = useState<string | null>(null);
+  const [explanationText, setExplanationText] = useState<string>('');
+  const [isLoadingExplanation, setIsLoadingExplanation] = useState<boolean>(false);
+
   // Find active deck
   const activeDeck = useMemo(() => {
     return decks.find(d => d.id === activeDeckId) || decks[0];
   }, [decks, activeDeckId]);
 
   // Load raw cards for active deck
-  const rawCards = useMemo(() => {
-    return getFlashcardsForDeck(activeDeckId);
-  }, [activeDeckId]);
+  const rawCards = deckCards;
 
   // Get unique topics for active deck
   const topicsList = useMemo(() => {
@@ -107,17 +129,69 @@ export default function FlashcardsPage() {
 
   // Study timer runner
   useEffect(() => {
-    if (sessionCompleted) return;
+    if (sessionCompleted || activeCards.length === 0) return;
 
     const interval = setInterval(() => {
       setTimeSpentSeconds(prev => prev + 1);
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [sessionCompleted]);
+  }, [sessionCompleted, activeCards.length]);
 
-  // Reset session and states on deck switch
-  const handleSelectDeck = (deckId: string) => {
+  // Fetch all decks from backend
+  const fetchDecks = async (selectFirst = false, selectId?: string) => {
+    setIsLoadingDecks(true);
+    try {
+      const data = await apiFetch<{ decks: any[] }>('/flashcards/decks');
+      const mapped = (data.decks || []).map((d: any, index: number) => ({
+        id: d.id,
+        title: d.title,
+        cards: d.card_count,
+        mastered: 0,
+        color: colors[index % colors.length],
+      }));
+      setDecks(mapped);
+
+      if (mapped.length > 0) {
+        if (selectId) {
+          handleSelectDeck(selectId);
+        } else if (selectFirst || !activeDeckId) {
+          handleSelectDeck(mapped[0].id);
+        }
+      } else {
+        setActiveDeckId('');
+        setDeckCards([]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch decks:', err);
+    } finally {
+      setIsLoadingDecks(false);
+    }
+  };
+
+  // Load decks on mount
+  useEffect(() => {
+    fetchDecks(true);
+  }, []);
+
+  // Fetch user documents for generation modal
+  useEffect(() => {
+    if (isGenerateModalOpen) {
+      const fetchDocs = async () => {
+        try {
+          const data = await apiFetch<{ documents: any[] }>('/upload/documents');
+          const readyDocs = (data.documents || []).filter((doc: any) => doc.status === 'ready');
+          setDocuments(readyDocs);
+        } catch (err) {
+          console.error('Failed to fetch documents:', err);
+        }
+      };
+      fetchDocs();
+    }
+  }, [isGenerateModalOpen]);
+
+  // Reset session and states on deck switch and load cards
+  const handleSelectDeck = async (deckId: string) => {
     setActiveDeckId(deckId);
     setActiveTopic('All');
     setCurrentCardIndex(0);
@@ -128,11 +202,74 @@ export default function FlashcardsPage() {
     setWeakCardsFilterActive(false);
     setWeakCardIds([]);
     setTimeSpentSeconds(0);
+
+    setIsLoadingCards(true);
+    try {
+      const deckData = await apiFetch<any>(`/flashcards/decks/${deckId}`);
+      if (deckData && deckData.flashcards) {
+        const mappedCards = deckData.flashcards.map((c: any) => ({
+          id: c.id,
+          topic: c.topic || 'General',
+          difficulty: c.difficulty || 'medium',
+          question: c.front,
+          answer: c.back,
+          hint: '',
+          example: '',
+          source: '',
+          importance: c.mastery_level === 'mastered' ? 'High' : 'Medium',
+        }));
+        setDeckCards(mappedCards);
+
+        // Compute initial mastered count
+        const masteredCount = deckData.flashcards.filter((c: any) => c.mastery_level === 'mastered').length;
+        setDecks(prev => prev.map(d => d.id === deckId ? { ...d, mastered: masteredCount } : d));
+      }
+    } catch (err) {
+      console.error('Failed to fetch deck cards:', err);
+    } finally {
+      setIsLoadingCards(false);
+    }
   };
 
-  // Switch back to demo (used in EmptyState)
+  // Switch back to demo/first deck
   const handleGenerateDemo = () => {
-    handleSelectDeck('1');
+    if (decks.length > 0) {
+      handleSelectDeck(decks[0].id);
+    } else {
+      setIsGenerateModalOpen(true);
+    }
+  };
+
+  // Trigger deck generation
+  const handleGenerateDeckSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedDocIds.length === 0) return;
+
+    setIsGenerating(true);
+    try {
+      const result = await apiFetch<{ deckId: string; cardCount: number; deckTitle: string }>(
+        '/flashcards/generate',
+        {
+          method: 'POST',
+          body: {
+            documentIds: selectedDocIds,
+            count: cardCount,
+            difficulty: generationDifficulty,
+            topicFocus: topicFocus || null,
+          },
+        }
+      );
+      setIsGenerateModalOpen(false);
+      // Reset inputs
+      setSelectedDocIds([]);
+      setTopicFocus('');
+      // Reload decks and automatically select the new deck
+      await fetchDecks(false, result.deckId);
+    } catch (err: any) {
+      alert(err.message || 'Failed to generate flashcard deck');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   // Navigations
@@ -154,7 +291,7 @@ export default function FlashcardsPage() {
   };
 
   // Rate a card
-  const handleRateCard = (difficulty: 'easy' | 'medium' | 'hard') => {
+  const handleRateCard = async (difficulty: 'easy' | 'medium' | 'hard') => {
     const currentCard = activeCards[currentCardIndex];
     if (!currentCard) return;
 
@@ -163,6 +300,17 @@ export default function FlashcardsPage() {
       ...prev,
       [currentCard.id]: difficulty,
     }));
+
+    // Post review status to the backend in background
+    try {
+      const result = difficulty === 'hard' ? 'incorrect' : 'correct';
+      await apiFetch(`/flashcards/cards/${currentCard.id}/review`, {
+        method: 'POST',
+        body: { result },
+      });
+    } catch (err) {
+      console.error('Failed to submit review:', err);
+    }
 
     // Update deck mastered count in sidebars
     setDecks(prevDecks => {
@@ -197,6 +345,21 @@ export default function FlashcardsPage() {
       setTimeout(() => {
         setSessionCompleted(true);
       }, 350);
+    }
+  };
+
+  const handleExplainCard = async (cardId: string) => {
+    setExplanationCardId(cardId);
+    setIsLoadingExplanation(true);
+    setExplanationText('');
+    try {
+      const data = await apiFetch<{ explanation: string }>(`/flashcards/cards/${cardId}/explain`);
+      setExplanationText(data.explanation);
+    } catch (err) {
+      console.error('Failed to fetch AI explanation:', err);
+      setExplanationText('Failed to generate AI explanation. Please try again.');
+    } finally {
+      setIsLoadingExplanation(false);
     }
   };
 
@@ -375,6 +538,7 @@ export default function FlashcardsPage() {
                   onFlip={() => setIsFlipped(!isFlipped)}
                   onSwipeLeft={() => handleRateCard('hard')}
                   onSwipeRight={() => handleRateCard('easy')}
+                  onExplain={handleExplainCard}
                 />
               </motion.div>
             </AnimatePresence>
@@ -386,14 +550,6 @@ export default function FlashcardsPage() {
               visible={isFlipped}
               onRate={handleRateCard}
             />
-            {/* <StudyControls
-              onPrev={handlePrev}
-              onNext={handleNext}
-              onFlip={() => setIsFlipped(!isFlipped)}
-              isFlipped={isFlipped}
-              onShuffle={handleShuffleToggle}
-              isShuffled={isShuffled}
-            /> */}
           </div>
         </div>
       </div>
@@ -408,7 +564,7 @@ export default function FlashcardsPage() {
         decks={decks}
         activeDeckId={activeDeckId}
         onSelectDeck={handleSelectDeck}
-        onGenerateDeck={() => handleSelectDeck('1')}
+        onGenerateDeck={() => setIsGenerateModalOpen(true)}
       />
 
       {/* 2. Collapsible Mobile/Tablet Drawer for Decks */}
@@ -452,7 +608,7 @@ export default function FlashcardsPage() {
               <div className="px-5 mt-4">
                 <button
                   onClick={() => {
-                    handleSelectDeck('1');
+                    setIsGenerateModalOpen(true);
                     setMobileMenuOpen(false);
                   }}
                   className="w-full bg-brand hover:bg-brand-mid active:scale-95 text-white rounded-2xl px-4 py-3 flex items-center justify-center gap-2 font-semibold text-sm transition-all"
@@ -548,6 +704,7 @@ export default function FlashcardsPage() {
                 total={activeCards.length}
                 flipped={isFlipped}
                 onFlip={() => setIsFlipped(!isFlipped)}
+                onExplain={handleExplainCard}
               />
               <DifficultyButtons
                 visible={isFlipped}
@@ -582,6 +739,230 @@ export default function FlashcardsPage() {
 
       {/* 6. Sticky bottom application navigation bar for mobile sizes */}
       {!isFullscreen && <BottomNav />}
+
+      {/* AI Explanation Drawer */}
+      <AnimatePresence>
+        {explanationCardId && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setExplanationCardId(null)}
+              className="fixed inset-0 bg-black/60 z-50 backdrop-blur-sm"
+            />
+            {/* Drawer Panel */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-white border-l border-gray-100 shadow-2xl z-50 flex flex-col"
+            >
+              <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-brand" />
+                  <h3 className="font-extrabold text-lg text-ink">AI Deep Explanation</h3>
+                </div>
+                <button
+                  onClick={() => setExplanationCardId(null)}
+                  className="text-gray-400 hover:text-ink p-1.5 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                  type="button"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {isLoadingExplanation ? (
+                  <div className="h-full flex flex-col items-center justify-center gap-3 text-gray-500">
+                    <Loader2 className="w-8 h-8 animate-spin text-brand" />
+                    <p className="text-sm font-semibold">Consulting AI study copilot...</p>
+                  </div>
+                ) : (
+                  <div className="prose prose-sm max-w-none text-gray-600 leading-relaxed space-y-4 whitespace-pre-wrap">
+                    {explanationText}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Generate Flashcards Modal */}
+      <AnimatePresence>
+        {isGenerateModalOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                if (!isGenerating) setIsGenerateModalOpen(false);
+              }}
+              className="fixed inset-0 bg-black/60 z-50 backdrop-blur-sm"
+            />
+            {/* Modal Dialog */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed inset-x-4 top-10 md:top-20 md:mx-auto max-w-xl bg-white border border-gray-100 rounded-[32px] shadow-2xl z-50 overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-brand" />
+                  <h3 className="font-extrabold text-lg text-ink">Generate Study Flashcards</h3>
+                </div>
+                <button
+                  onClick={() => setIsGenerateModalOpen(false)}
+                  disabled={isGenerating}
+                  className="text-gray-400 hover:text-ink p-1.5 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                  type="button"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleGenerateDeckSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Document Selector */}
+                <div className="space-y-2">
+                  <label className="text-xs font-extrabold text-gray-500 uppercase tracking-wide block">
+                    Select Study Documents *
+                  </label>
+                  {documents.length === 0 ? (
+                    <div className="p-4 border border-dashed border-gray-200 rounded-2xl text-center text-sm text-gray-500">
+                      No ready documents found. Go to <Link href="/documents" className="text-brand font-bold hover:underline">Documents</Link> to upload.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
+                      {documents.map((doc) => {
+                        const isSelected = selectedDocIds.includes(doc.id);
+                        return (
+                          <div
+                            key={doc.id}
+                            onClick={() => {
+                              if (isGenerating) return;
+                              setSelectedDocIds(prev =>
+                                isSelected
+                                  ? prev.filter(id => id !== doc.id)
+                                  : [...prev, doc.id]
+                              );
+                            }}
+                            className={`flex items-center gap-3 p-3 rounded-2xl border transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-brand/5 border-brand text-ink'
+                                : 'border-gray-100 hover:bg-gray-50 text-gray-600'
+                            }`}
+                          >
+                            <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
+                              isSelected ? 'bg-brand border-brand text-white' : 'border-gray-300 bg-white'
+                            }`}>
+                              {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                            </div>
+                            <FileText className={`w-4 h-4 shrink-0 ${isSelected ? 'text-brand' : 'text-gray-400'}`} />
+                            <span className="text-xs font-bold truncate flex-1 leading-tight">{doc.name}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Card Count Input */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-extrabold text-gray-500 uppercase tracking-wide">
+                      Number of Flashcards
+                    </label>
+                    <span className="text-xs font-bold text-brand">{cardCount} cards</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="5"
+                    max="50"
+                    value={cardCount}
+                    onChange={(e) => setCardCount(Number(e.target.value))}
+                    disabled={isGenerating}
+                    className="w-full h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-brand"
+                  />
+                </div>
+
+                {/* Difficulty Select */}
+                <div className="space-y-2">
+                  <label className="text-xs font-extrabold text-gray-500 uppercase tracking-wide block">
+                    Difficulty Level
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(['mixed', 'easy', 'medium', 'hard'] as const).map((diff) => (
+                      <button
+                        key={diff}
+                        type="button"
+                        onClick={() => setGenerationDifficulty(diff)}
+                        disabled={isGenerating}
+                        className={`py-2.5 rounded-2xl text-xs font-bold border transition-all cursor-pointer capitalize ${
+                          generationDifficulty === diff
+                            ? 'bg-brand/10 border-brand text-brand'
+                            : 'border-gray-100 hover:bg-gray-50 text-gray-500'
+                        }`}
+                      >
+                        {diff}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Topic Focus */}
+                <div className="space-y-2">
+                  <label className="text-xs font-extrabold text-gray-500 uppercase tracking-wide block">
+                    Topic Focus (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={topicFocus}
+                    onChange={(e) => setTopicFocus(e.target.value)}
+                    disabled={isGenerating}
+                    placeholder="e.g. electromagnetic waves, covalent bonding"
+                    className="w-full bg-surface border border-gray-100 rounded-2xl px-4 py-3 text-sm text-ink placeholder-gray-400 focus:outline-none focus:border-brand transition-colors"
+                  />
+                </div>
+
+                {/* Submit button */}
+                <div className="pt-2 border-t border-gray-100 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsGenerateModalOpen(false)}
+                    disabled={isGenerating}
+                    className="px-5 py-3 rounded-2xl text-xs font-bold border border-gray-100 text-gray-500 hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isGenerating || selectedDocIds.length === 0}
+                    className="px-6 py-3 rounded-2xl text-xs font-bold bg-brand hover:bg-brand-mid text-white transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Generating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Generate Deck</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   </ProtectedRoute>
   );
