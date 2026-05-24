@@ -1,5 +1,4 @@
 import { StateGraph, Annotation, START, END } from '@langchain/langgraph';
-import { ChatOpenAI } from '@langchain/openai';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { env } from '../../config/env.js';
 import { db } from '../../shared/db/mysql.js';
@@ -66,23 +65,17 @@ export type FlashcardGenerationState = typeof FlashcardGenerationStateAnnotation
 
 // Helper to instantiate the appropriate model
 export function getLLM(modelName: string, temperature = 0.3) {
-  if (modelName.startsWith('gpt') || env.OPENAI_API_KEY) {
-    return new ChatOpenAI({
-      openAIApiKey: env.OPENAI_API_KEY,
-      modelName: modelName,
-      temperature,
-    });
-  } else {
-    const apiKey = env.GEMINI_API_KEY || env.GOOGLE_API_KEY;
-    const fields: any = {
-      model: modelName.startsWith('gemini') ? modelName : 'gemini-3.5-flash',
-      temperature,
-    };
-    if (apiKey) {
-      fields.apiKey = apiKey;
-    }
-    return new ChatGoogleGenerativeAI(fields);
+  const apiKey = env.GEMINI_API_KEY || env.GOOGLE_API_KEY;
+  const googleModelName = modelName.startsWith('gemini') ? modelName : 'gemini-3.5-flash';
+  
+  const fields: any = {
+    model: googleModelName,
+    temperature,
+  };
+  if (apiKey) {
+    fields.apiKey = apiKey;
   }
+  return new ChatGoogleGenerativeAI(fields);
 }
 
 // Node 1: retrieve_context

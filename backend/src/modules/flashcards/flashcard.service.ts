@@ -218,7 +218,7 @@ export class FlashcardService {
     }
 
     const deckRows = await db.query<any[]>(
-      `SELECT * FROM flashcard_decks WHERE id = ? AND deleted_at IS NULL`,
+      `SELECT * FROM flashcard_decks WHERE id = ?`,
       [deckId]
     );
 
@@ -232,7 +232,7 @@ export class FlashcardService {
     }
 
     const cardRows = await db.query<any[]>(
-      `SELECT * FROM flashcards WHERE deck_id = ? AND deleted_at IS NULL ORDER BY created_at ASC`,
+      `SELECT * FROM flashcards WHERE deck_id = ?  ORDER BY created_at ASC`,
       [deckId]
     );
 
